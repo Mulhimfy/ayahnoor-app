@@ -1,13 +1,13 @@
 name: Build
 
-# Builds Mulhimfy/mishkat (private; read-only deploy key, credentials not
+# Builds Mulhimfy/ayahnoor (private; read-only deploy key, credentials not
 # kept). Every output — analyzer and test reports, the APK, emulator
-# screenshots and logcat — is sealed with MK_ARTIFACT_KEY before upload.
+# screenshots and logcat — is sealed with AN_ARTIFACT_KEY before upload.
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch, tag or commit of Mulhimfy/mishkat
+        description: Branch, tag or commit of Mulhimfy/ayahnoor
         default: main
       smoke:
         description: Drive the APK on an emulator and take screenshots
@@ -31,9 +31,9 @@ jobs:
           path: ci
       - uses: actions/checkout@v4
         with:
-          repository: Mulhimfy/mishkat
+          repository: Mulhimfy/ayahnoor
           ref: ${{ inputs.ref }}
-          ssh-key: ${{ secrets.MISHKAT_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.AYAHNOOR_DEPLOY_KEY }}
           persist-credentials: false
           path: app
       - name: Source
@@ -59,11 +59,11 @@ jobs:
       - name: Signing
         working-directory: app/android
         env:
-          KS: ${{ secrets.MK_KEYSTORE_B64 }}
-          PW: ${{ secrets.MK_KEYSTORE_PASSWORD }}
+          KS: ${{ secrets.AN_KEYSTORE_B64 }}
+          PW: ${{ secrets.AN_KEYSTORE_PASSWORD }}
         run: |
           printf '%s' "$KS" | base64 -d > upload.p12
-          printf 'storeFile=upload.p12\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=mishkat\nstoreType=pkcs12\n' "$PW" "$PW" > key.properties
+          printf 'storeFile=upload.p12\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=ayahnoor\nstoreType=pkcs12\n' "$PW" "$PW" > key.properties
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
@@ -73,8 +73,8 @@ jobs:
           # One APK per ABI: arm64 is what phones run (and what is sent on),
           # x86_64 is what the emulator below runs.
           if flutter build apk --release --split-per-abi --no-pub > ../out/build.txt 2>&1; then
-            cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../out/Mishkat.apk
-            cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../out/Mishkat-armv7.apk
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../out/AyahNoor.apk
+            cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../out/AyahNoor-armv7.apk
             cp build/app/outputs/flutter-apk/app-x86_64-release.apk ../out/smoke.apk
             ls -la ../out/*.apk | awk '{print "apk bytes:", $5, $9}'
           else
@@ -82,8 +82,8 @@ jobs:
           fi
           # The bundle Google Play takes.
           if flutter build appbundle --release --no-pub >> ../out/build.txt 2>&1; then
-            cp build/app/outputs/bundle/release/app-release.aab ../out/Mishkat.aab
-            ls -la ../out/Mishkat.aab | awk '{print "aab bytes:", $5}'
+            cp build/app/outputs/bundle/release/app-release.aab ../out/AyahNoor.aab
+            ls -la ../out/AyahNoor.aab | awk '{print "aab bytes:", $5}'
           else
             echo "bundle: FAILED"
           fi
@@ -109,7 +109,7 @@ jobs:
       - name: Seal
         if: always()
         env:
-          K: ${{ secrets.MK_ARTIFACT_KEY }}
+          K: ${{ secrets.AN_ARTIFACT_KEY }}
         run: |
           rm -f app/android/upload.p12 app/android/key.properties out/smoke.apk
           tar czf bundle.tgz -C out .

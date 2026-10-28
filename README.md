@@ -1,6 +1,6 @@
-# mishkat-ci
+# ayahnoor-app
 
-Build runner for **Mishkat** (`com.mulhimfy.mishkat`), a Quran Mus'haf app.
+Build runner for **AyahNoor** (`com.mulhimfy.ayahnoor`), a Quran Mus'haf app.
 
 This repository holds workflows only. A run checks out the private app
 repository with a read-only deploy key, analyses and tests it, builds the
@@ -9,5 +9,5 @@ uploads everything it made as **one sealed file** (AES-256, key held by the
 owner). Nothing readable leaves the runner: no source, no build, no log.
 
 ```sh
-gh workflow run build.yml -R Mulhimfy/mishkat-ci -f ref=main -f smoke=true
+gh workflow run build.yml -R Mulhimfy/ayahnoor-app -f ref=main -f smoke=true
 ```

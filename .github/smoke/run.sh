@@ -6,7 +6,7 @@
 APK=$1
 OUT=$2
 mkdir -p "$OUT"
-PKG=com.mulhimfy.mishkat
+PKG=com.mulhimfy.ayahnoor
 adb wait-for-device
 adb shell settings put global window_animation_scale 1
 read -r W H <<<"$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1 | tr x ' ')"
