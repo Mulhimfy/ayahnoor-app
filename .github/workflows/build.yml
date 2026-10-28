@@ -1,0 +1,114 @@
+name: Build
+
+# Builds Mulhimfy/mishkat (private; read-only deploy key, credentials not
+# kept). Every output — analyzer and test reports, the APK, emulator
+# screenshots and logcat — is sealed with MK_ARTIFACT_KEY before upload.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit of Mulhimfy/mishkat
+        default: main
+      smoke:
+        description: Drive the APK on an emulator and take screenshots
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ inputs.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ci
+      - uses: actions/checkout@v4
+        with:
+          repository: Mulhimfy/mishkat
+          ref: ${{ inputs.ref }}
+          ssh-key: ${{ secrets.MISHKAT_DEPLOY_KEY }}
+          persist-credentials: false
+          path: app
+      - name: Source
+        working-directory: app
+        run: git log -1 --format='%h %cd' --date=iso
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.8
+          channel: stable
+          cache: true
+      - name: Analyze and test
+        working-directory: app
+        run: |
+          mkdir -p ../out
+          flutter pub get > ../out/pub.txt 2>&1
+          if flutter analyze --no-pub > ../out/analyze.txt 2>&1; then echo "analyze: clean"; else echo "analyze: issues"; fi
+          if flutter test --no-pub > ../out/test.txt 2>&1; then echo "tests: passed"; else echo "tests: FAILED"; fi
+          tail -1 ../out/test.txt | grep -oE '\+[0-9]+( -[0-9]+)?' || true
+      - name: Signing
+        working-directory: app/android
+        env:
+          KS: ${{ secrets.MK_KEYSTORE_B64 }}
+          PW: ${{ secrets.MK_KEYSTORE_PASSWORD }}
+        run: |
+          printf '%s' "$KS" | base64 -d > upload.p12
+          printf 'storeFile=upload.p12\nstorePassword=%s\nkeyPassword=%s\nkeyAlias=mishkat\nstoreType=pkcs12\n' "$PW" "$PW" > key.properties
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Release APK
+        working-directory: app
+        run: |
+          if flutter build apk --release --no-pub > ../out/build.txt 2>&1; then
+            cp build/app/outputs/flutter-apk/app-release.apk ../out/Mishkat.apk
+            ls -la ../out/Mishkat.apk | awk '{print "apk bytes:", $5}'
+          else
+            echo "build: FAILED"; touch ../out/BUILD_FAILED
+          fi
+          rm -f android/upload.p12 android/key.properties
+      - name: Enable KVM
+        if: inputs.smoke
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Emulator smoke test
+        if: inputs.smoke && hashFiles('out/Mishkat.apk') != ''
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash ci/.github/smoke/run.sh out/Mishkat.apk out/smoke
+      - name: Seal
+        if: always()
+        env:
+          K: ${{ secrets.MK_ARTIFACT_KEY }}
+        run: |
+          rm -f app/android/upload.p12 app/android/key.properties
+          tar czf bundle.tgz -C out .
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:K -in bundle.tgz -out sealed.bin
+          rm -f bundle.tgz
+          ls -la sealed.bin | awk '{print "sealed bytes:", $5}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sealed
+          path: sealed.bin
+          retention-days: 5
+          if-no-files-found: error
