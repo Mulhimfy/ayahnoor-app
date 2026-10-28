@@ -70,9 +70,13 @@ jobs:
       - name: Release APK
         working-directory: app
         run: |
-          if flutter build apk --release --no-pub > ../out/build.txt 2>&1; then
-            cp build/app/outputs/flutter-apk/app-release.apk ../out/Mishkat.apk
-            ls -la ../out/Mishkat.apk | awk '{print "apk bytes:", $5}'
+          # One APK per ABI: arm64 is what phones run (and what is sent on),
+          # x86_64 is what the emulator below runs.
+          if flutter build apk --release --split-per-abi --no-pub > ../out/build.txt 2>&1; then
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ../out/Mishkat.apk
+            cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ../out/Mishkat-armv7.apk
+            cp build/app/outputs/flutter-apk/app-x86_64-release.apk ../out/smoke.apk
+            ls -la ../out/*.apk | awk '{print "apk bytes:", $5, $9}'
           else
             echo "build: FAILED"; touch ../out/BUILD_FAILED
           fi
@@ -84,7 +88,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Emulator smoke test
-        if: inputs.smoke && hashFiles('out/Mishkat.apk') != ''
+        if: inputs.smoke && hashFiles('out/smoke.apk') != ''
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -94,13 +98,13 @@ jobs:
           ram-size: 4096M
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: bash ci/.github/smoke/run.sh out/Mishkat.apk out/smoke
+          script: bash ci/.github/smoke/run.sh out/smoke.apk out/smoke
       - name: Seal
         if: always()
         env:
           K: ${{ secrets.MK_ARTIFACT_KEY }}
         run: |
-          rm -f app/android/upload.p12 app/android/key.properties
+          rm -f app/android/upload.p12 app/android/key.properties out/smoke.apk
           tar czf bundle.tgz -C out .
           openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:K -in bundle.tgz -out sealed.bin
           rm -f bundle.tgz

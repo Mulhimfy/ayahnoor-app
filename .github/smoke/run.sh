@@ -14,10 +14,19 @@ D=$(adb shell wm density | grep -oE '[0-9]+' | tail -1)
 echo "screen ${W}x${H} density $D"
 px() { echo $(( $1 * D / 160 )); }
 tap() { adb shell input tap "$(px "$1")" "$(px "$2")"; sleep "${3:-2}"; }
-shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "shot $1"; }
+shot() {
+  adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+  adb exec-out screencap -p > "$OUT/$1.png"; echo "shot $1"
+}
 WD=$(( W * 160 / D ))
 HD=$(( H * 160 / D ))
 
+# A slow emulator's own apps time out ("Pixel Launcher isn't responding")
+# and the dialog swallows every tap: hide those dialogs, let it settle.
+adb shell settings put global hide_error_dialogs 1
+adb shell input keyevent KEYCODE_HOME
+sleep 25
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
 adb install -r "$APK" || { echo "install failed"; exit 0; }
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity
@@ -49,8 +58,10 @@ shot 09_verse_bar
 # Play from the verse bar (first action), let it recite.
 tap $(( WD / 8 + 10 )) $(( HD - 70 )) 12
 shot 10_playing
+adb shell dumpsys media_session > "$OUT/media_session.txt" 2>&1 || true
 sleep 10
 shot 11_playing_later
+adb shell dumpsys media_session | grep -E "state=PlaybackState|active=" >> "$OUT/media_session_later.txt" 2>&1 || true
 # Look sheet: switch to Verses view.
 tap $(( WD / 2 )) $(( HD / 2 )) 2
 tap $(( WD * 5 / 8 )) $(( HD - 50 )) 3
