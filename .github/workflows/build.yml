@@ -80,6 +80,13 @@ jobs:
           else
             echo "build: FAILED"; touch ../out/BUILD_FAILED
           fi
+          # The bundle Google Play takes.
+          if flutter build appbundle --release --no-pub >> ../out/build.txt 2>&1; then
+            cp build/app/outputs/bundle/release/app-release.aab ../out/Mishkat.aab
+            ls -la ../out/Mishkat.aab | awk '{print "aab bytes:", $5}'
+          else
+            echo "bundle: FAILED"
+          fi
           rm -f android/upload.p12 android/key.properties
       - name: Enable KVM
         if: inputs.smoke

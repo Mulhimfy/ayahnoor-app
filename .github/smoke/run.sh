@@ -45,24 +45,26 @@ shot 05_page2
 # Chrome.
 tap $(( WD / 2 )) $(( HD / 2 )) 3
 shot 06_chrome
-# Listen sheet (second dock item), then play.
+# Listen sheet (second dock item): shot, then its Play button (bottom).
 tap $(( WD * 3 / 8 )) $(( HD - 50 )) 3
 shot 07_listen
-adb shell input swipe "$(px $(( WD / 2 )))" "$(px $(( HD - 120 )))" "$(px $(( WD / 2 )))" "$(px 200)" 400; sleep 2
-shot 08_listen_scrolled
-adb shell input keyevent KEYCODE_BACK; sleep 2
-tap $(( WD / 2 )) $(( HD / 2 )) 2
-# Long press on a line of text: the verse bar.
-adb shell input swipe "$(px $(( WD / 2 )))" "$(px 300)" "$(px $(( WD / 2 )))" "$(px 300)" 1200; sleep 3
-shot 09_verse_bar
-# Play from the verse bar (first action), let it recite.
-tap $(( WD / 8 + 10 )) $(( HD - 70 )) 12
-shot 10_playing
+tap $(( WD / 2 )) $(( HD - 45 )) 14
+shot 08_playing
 adb shell dumpsys media_session > "$OUT/media_session.txt" 2>&1 || true
-sleep 10
-shot 11_playing_later
-adb shell dumpsys media_session | grep -E "state=PlaybackState|active=" >> "$OUT/media_session_later.txt" 2>&1 || true
-# Look sheet: switch to Verses view.
+sleep 12
+shot 09_playing_later
+adb shell dumpsys media_session > "$OUT/media_session_later.txt" 2>&1 || true
+# Stop (mini player's close), then hold a verse: the lens, the verse bar.
+tap $(( WD - 40 )) $(( HD - 50 )) 3
+adb shell input swipe "$(px $(( WD / 2 )))" "$(px 330)" "$(px $(( WD / 2 )))" "$(px 330)" 1400; sleep 3
+shot 10_verse_bar
+adb shell input keyevent KEYCODE_BACK; sleep 2
+# Turn the page over (translation on its back): chrome, then the top-right action.
+tap $(( WD / 2 )) $(( HD / 2 )) 3
+tap $(( WD - 44 )) 64 4
+shot 11_flipped
+tap $(( WD / 2 )) $(( HD / 2 )) 3
+# Look sheet.
 tap $(( WD / 2 )) $(( HD / 2 )) 2
 tap $(( WD * 5 / 8 )) $(( HD - 50 )) 3
 shot 12_look
