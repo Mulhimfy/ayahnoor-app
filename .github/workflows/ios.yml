@@ -52,9 +52,12 @@ jobs:
           cache: true
       - name: Flutter build (unsigned; sets version, pods/packages, assets)
         working-directory: app
+        env:
+          # the word timing's read key (lib/audio/word_timing.dart); Generated.xcconfig carries it to the archive
+          WORDS_KEY: ${{ secrets.WORDS_KEY }}
         run: |
           flutter pub get > "$RUNNER_TEMP/pub.log" 2>&1
-          flutter build ios --release --no-codesign --build-number="${GITHUB_RUN_NUMBER}" > "$RUNNER_TEMP/flutter.log" 2>&1 \
+          flutter build ios --release --no-codesign --build-number="${GITHUB_RUN_NUMBER}" --dart-define=WORDS_KEY="$WORDS_KEY" > "$RUNNER_TEMP/flutter.log" 2>&1 \
             || { tail -40 "$RUNNER_TEMP/flutter.log"; exit 1; }
           grep -E "^Built|✓" "$RUNNER_TEMP/flutter.log" | tail -3 || true
       - name: Signing keychain and API key
